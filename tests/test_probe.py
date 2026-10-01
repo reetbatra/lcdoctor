@@ -125,3 +125,12 @@ def test_probe_script_runs_standalone_and_fences_output():
     assert [r["status"] for r in data["results"]] == ["ok", "missing_name"]
     assert data["python"].count(".") == 2
     assert data["site_packages"]
+
+
+def test_probe_from_import_of_unimported_submodule(fake_family):
+    # `from langchain_fakepkg import sub` works in Python even though sub was never imported.
+    cache: dict = {}
+    res = _probe.probe_one(fake_family, "sub", cache)
+    assert res["status"] == "ok" and res["kind"] == "module"
+    missing = _probe.probe_one(fake_family, "nothing_here", cache)
+    assert missing["status"] == "missing_name"

@@ -89,7 +89,7 @@ def run_check(args: argparse.Namespace) -> Diagnosis:
 def run_upgrade(args: argparse.Namespace) -> Diagnosis:
     root = Path(args.path)
     scan = scan_project(root)
-    declared = declared_family_distributions(root)
+    declared = declared_family_distributions(root, exclude=set(scan.local_packages))
     specs = merge_specs(sorted(set(used_distributions(scan)) | set(declared)), args.to or [])
     if not scan.usages:
         return diagnose(scan, Path(sys.executable), mode="upgrade", env_label="nothing to install")

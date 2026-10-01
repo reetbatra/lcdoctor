@@ -316,3 +316,24 @@ def test_installed_in_target_comes_from_target_index(monkeypatch: pytest.MonkeyP
         locator=Locator(idx, Path("/locator")),
     )
     assert with_idx.findings[0].relocation.installed_in_target is True
+
+
+def test_submodule_names_are_relocated_by_module_path(monkeypatch: pytest.MonkeyPatch):
+    # Regression from Langchain-Chatchat: `from langchain import hub` -> langchain_classic.hub.
+    idx = index_of(langchain_classic__hub=(set(), {"pull"}))
+    fake = FakeProbe(
+        {
+            "/target": {("langchain", "hub"): r("langchain", "hub", "missing_name")},
+            "/locator": {
+                ("langchain_classic", "hub"): r("langchain_classic", "hub", kind="module")
+            },
+        }
+    )
+    monkeypatch.setattr(dmod, "run_probe", fake)
+    d = diagnose(
+        scan_of(("langchain", "hub", "a.py")),
+        Path("/target"),
+        mode="upgrade",
+        locator=Locator(idx, Path("/locator")),
+    )
+    assert d.findings[0].relocation.import_line == "from langchain_classic import hub"

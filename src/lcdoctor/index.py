@@ -14,6 +14,7 @@ from __future__ import annotations
 import ast
 import json
 import os
+import warnings
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -125,7 +126,9 @@ def _is_lookup_table(name: str) -> bool:
 
 def extract_exports(source: str, module: str) -> ModuleExports:
     """Pull public names out of one module's source. Raises SyntaxError."""
-    tree = ast.parse(source)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", SyntaxWarning)
+        tree = ast.parse(source)
     out = ModuleExports(module)
     dicts: dict[str, list[str]] = {}
     for node in tree.body:

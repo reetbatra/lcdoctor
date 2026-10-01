@@ -106,3 +106,52 @@ def test_declared_distributions_poetry(tmp_path: Path):
         '[tool.poetry.dependencies]\npython = "^3.11"\nlangchain-core = "^0.3"\n'
     )
     assert declared_family_distributions(tmp_path) == ["langchain-core"]
+
+
+def test_project_own_family_named_package_is_not_a_dependency(tmp_path: Path):
+    # Regression: Langchain-Chatchat ships its own `langchain_chatchat` package.
+    pkg = tmp_path / "libs" / "server" / "langchain_chatchat"
+    pkg.mkdir(parents=True)
+    (pkg / "__init__.py").write_text("")
+    (tmp_path / "langchain_helpers.py").write_text("")
+    (tmp_path / "app.py").write_text(
+        "import langchain_chatchat\nfrom langchain_helpers import x\nfrom langchain.chains import LLMChain\n"
+    )
+    result = scan_project(tmp_path)
+    assert [u.module for u in result.usages] == ["langchain.chains"]
+    assert result.local_packages == ["langchain_chatchat", "langchain_helpers"]
+
+
+def test_declared_distributions_walk_tree_and_drop_own_and_path_deps(tmp_path: Path):
+    server = tmp_path / "libs" / "server"
+    server.mkdir(parents=True)
+    (server / "pyproject.toml").write_text(
+        '[tool.poetry]\nname = "langchain-chatchat"\n'
+        '[tool.poetry.dependencies]\nlangchain = "0.1.17"\nlangchain-community = "0.0.36"\n'
+        'langchain-local = { path = "../local" }\nlangchainhub = "0.1.14"\n'
+    )
+    (tmp_path / "pyproject.toml").write_text(
+        '[tool.poetry]\nname = "Chatchat"\n[tool.poetry.dependencies]\nlangchain-chatchat = "*"\n'
+    )
+    venv = tmp_path / ".venv"
+    venv.mkdir()
+    (venv / "requirements.txt").write_text("langchain-ignored\n")
+    assert declared_family_distributions(tmp_path) == ["langchain", "langchain-community"]
+
+
+def test_syntax_warnings_in_scanned_code_are_silenced(recwarn: pytest.WarningsRecorder):
+    scan_source('import re\nPAT = "\\s+"\nfrom langchain.chains import LLMChain\n', "a.py")
+    assert not [w for w in recwarn if issubclass(w.category, SyntaxWarning)]
+
+
+def test_nested_family_named_subpackage_is_not_local_top_level(tmp_path: Path):
+    # Regression: Langchain-Chatchat has open_chatcaht/extra/langchain/, which is not `langchain`.
+    nested = tmp_path / "sdk" / "open_chatcaht" / "extra" / "langchain"
+    nested.mkdir(parents=True)
+    for d in (nested, nested.parent, nested.parent.parent):
+        (d / "__init__.py").write_text("")
+    (nested.parent / "langchain_tools.py").write_text("")
+    (tmp_path / "app.py").write_text("from langchain.chains import LLMChain\n")
+    result = scan_project(tmp_path)
+    assert result.local_packages == []
+    assert [u.module for u in result.usages] == ["langchain.chains"]

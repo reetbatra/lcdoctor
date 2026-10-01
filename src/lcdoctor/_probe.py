@@ -163,8 +163,23 @@ def probe_one(module_name, attr_name, module_cache):
         try:
             obj = getattr(module, attr_name)
         except AttributeError as exc:
+            # `from pkg import sub` also works when `sub` is a submodule nobody imported yet.
             obj = None
             result.update(status="missing_name", error=str(exc))
+            try:
+                obj = importlib.import_module(module_name + "." + attr_name)
+                result.update(status="ok", error=None)
+            except ModuleNotFoundError as sub_exc:
+                if sub_exc.name != module_name + "." + attr_name:
+                    result.update(
+                        status="import_error",
+                        missing_module=sub_exc.name,
+                        error="%s: %s" % (type(sub_exc).__name__, sub_exc),
+                    )
+            except BaseException as sub_exc:
+                result.update(
+                    status="import_error", error="%s: %s" % (type(sub_exc).__name__, sub_exc)
+                )
         except BaseException as exc:
             obj = None
             result.update(status="import_error", error="%s: %s" % (type(exc).__name__, exc))

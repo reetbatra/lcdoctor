@@ -139,7 +139,14 @@ def _candidate_targets(
     for c in rank_candidates(module, pool):
         if (c.module, c.name) not in seen:
             seen.append((c.module, c.name))
-    return seen[:MAX_CANDIDATES]
+    out = seen[:MAX_CANDIDATES]
+    # `from langchain import hub` names a submodule: look for `<other pkg>.hub` too.
+    for idx in indexes:
+        for m in idx.find_module(f"{module}.{name}"):
+            parent, _, leaf = m.rpartition(".")
+            if parent and (parent, leaf) not in out:
+                out.append((parent, leaf))
+    return out
 
 
 def _dist_info(top: str, probe: dict[str, Any]) -> tuple[str | None, str | None]:
