@@ -203,7 +203,8 @@ def family_distributions(prefixes):
         return {}
     out = {}
     for dist in metadata.distributions():
-        name = (dist.metadata.get("Name") or "").strip()
+        # Distribution.name is 3.10+; the probe also runs on older interpreters.
+        name = (getattr(dist, "name", None) or dist.metadata["Name"] or "").strip()
         norm = name.lower().replace("_", "-")
         if any(norm == p or norm.startswith(p + "-") for p in prefixes) or norm == "langsmith":
             out[norm] = dist.version
