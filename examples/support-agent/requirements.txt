@@ -1,0 +1,5 @@
+# What this demo was built on, before LangChain 1.0.
+langchain==0.3.30
+langchain-community==0.3.31
+langchain-openai==0.3.35
+langgraph==0.6.9
